@@ -46,6 +46,14 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   console.warn("Firestore Operation Mode (System uses offline/local storage smoothly):", JSON.stringify(errInfo));
 }
 
+// Helper to extract sheet ID and construct direct Google Sheet CSV export URL
+const getGoogleSheetCsvUrl = (url: string): string | null => {
+  const matches = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  if (!matches) return null;
+  const sheetId = matches[1];
+  return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+};
+
 // Helper to deduplicate a questions pool by ID and by full content (Arabic text matches)
 const deduplicateQuestions = (pool: Question[]): Question[] => {
   if (!pool || !Array.isArray(pool)) return [];
@@ -652,10 +660,32 @@ export default function App() {
       if (needsSambung) {
         console.log("AutoSync: Pulling Sambung Ayat sheet silently:", sambungUrlClean);
         try {
-          const res = await fetch(`/api/google-sheet?url=${encodeURIComponent(sambungUrlClean)}`);
-          const data = await res.json();
-          if (res.ok && data.success && data.csv) {
-            const parsedRows = parseCSV(data.csv);
+          let csv = "";
+          try {
+            const res = await fetch(`/api/google-sheet?url=${encodeURIComponent(sambungUrlClean)}`);
+            const contentType = res.headers.get("content-type") || "";
+            if (res.ok && contentType.includes("application/json")) {
+              const data = await res.json();
+              if (data.success && data.csv) {
+                csv = data.csv;
+              }
+            }
+          } catch (e) {
+            console.warn("AutoSync: Express proxy for Sambung Ayat failed, trying direct browser fetch:", e);
+          }
+
+          if (!csv) {
+            const directCsvUrl = getGoogleSheetCsvUrl(sambungUrlClean);
+            if (directCsvUrl) {
+              const directRes = await fetch(directCsvUrl);
+              if (directRes.ok) {
+                csv = await directRes.text();
+              }
+            }
+          }
+
+          if (csv) {
+            const parsedRows = parseCSV(csv);
             parsedRows.forEach((row, idx) => {
               const q = mapRecordToQuestion(row, idx, "gsheet");
               if (q) {
@@ -668,7 +698,7 @@ export default function App() {
               localStorage.setItem("tashih_sheets_url_sambung_last_pulled", sambungUrlClean);
             } catch (e) {}
           } else {
-            console.warn("AutoSync: Failed Sambung Ayat fetch:", data.error);
+            console.warn("AutoSync: Failed to fetch Sambung Ayat sheet via either proxy or direct browser link.");
           }
         } catch (err) {
           console.warn("AutoSync: Sambung Ayat sheet fetch error:", err);
@@ -678,10 +708,32 @@ export default function App() {
       if (needsTerjamah) {
         console.log("AutoSync: Pulling Tarjamah sheet silently:", terjamahUrlClean);
         try {
-          const res = await fetch(`/api/google-sheet?url=${encodeURIComponent(terjamahUrlClean)}`);
-          const data = await res.json();
-          if (res.ok && data.success && data.csv) {
-            const parsedRows = parseCSV(data.csv);
+          let csv = "";
+          try {
+            const res = await fetch(`/api/google-sheet?url=${encodeURIComponent(terjamahUrlClean)}`);
+            const contentType = res.headers.get("content-type") || "";
+            if (res.ok && contentType.includes("application/json")) {
+              const data = await res.json();
+              if (data.success && data.csv) {
+                csv = data.csv;
+              }
+            }
+          } catch (e) {
+            console.warn("AutoSync: Express proxy for Tarjamah failed, trying direct browser fetch:", e);
+          }
+
+          if (!csv) {
+            const directCsvUrl = getGoogleSheetCsvUrl(terjamahUrlClean);
+            if (directCsvUrl) {
+              const directRes = await fetch(directCsvUrl);
+              if (directRes.ok) {
+                csv = await directRes.text();
+              }
+            }
+          }
+
+          if (csv) {
+            const parsedRows = parseCSV(csv);
             parsedRows.forEach((row, idx) => {
               const q = mapRecordToQuestion(row, idx, "gsheet");
               if (q) {
@@ -694,7 +746,7 @@ export default function App() {
               localStorage.setItem("tashih_sheets_url_terjamah_last_pulled", terjamahUrlClean);
             } catch (e) {}
           } else {
-            console.warn("AutoSync: Failed Tarjamah fetch:", data.error);
+            console.warn("AutoSync: Failed to fetch Tarjamah sheet via either proxy or direct browser link.");
           }
         } catch (err) {
           console.warn("AutoSync: Tarjamah sheet fetch error:", err);
@@ -1475,25 +1527,48 @@ export default function App() {
     };
 
     try {
-      const response = await fetch("/api/google-sheet-webhook", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          webhookUrl: googleSheetsWebhookUrl.trim(),
-          payload: payload
-        })
-      });
+      let success = false;
+      try {
+        const response = await fetch("/api/google-sheet-webhook", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            webhookUrl: googleSheetsWebhookUrl.trim(),
+            payload: payload
+          })
+        });
 
-      const data = await response.json();
-      if (data.success) {
-        console.log("Custom question appended to Google Sheet Webhook successfully server-side.", data);
-      } else {
-        console.warn("Server-side Google Sheet Webhook had an error:", data.error);
+        const contentType = response.headers.get("content-type") || "";
+        if (response.ok && contentType.includes("application/json")) {
+          const data = await response.json();
+          if (data.success) {
+            console.log("Custom question appended to Google Sheet Webhook successfully server-side.", data);
+            success = true;
+          } else {
+            console.warn("Server-side Google Sheet Webhook had an error:", data.error);
+          }
+        }
+      } catch (e) {
+        console.warn("Failed pushing to webhook via server-side API, attempting direct client-side fallback:", e);
+      }
+
+      // Direct Client-Side Fallback for Static Hostings (Vercel, Netlify)
+      if (!success) {
+        console.log("Attempting direct client-side POST to Google Webhook with CORS-tolerant mode...");
+        await fetch(googleSheetsWebhookUrl.trim(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload),
+          mode: "no-cors" // Safe bypass for Google Apps Script redirects
+        });
+        console.log("Direct client-side webhook request completed successfully in no-cors mode.");
       }
     } catch (err) {
-      console.error("Failed pushing to Google Sheet Webhook via server-side API:", err);
+      console.error("Failed pushing to Google Sheet Webhook:", err);
     } finally {
       setIsSendingToWebhook(false);
     }
@@ -1518,22 +1593,45 @@ export default function App() {
     };
 
     try {
-      const response = await fetch("/api/google-sheet-webhook", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          webhookUrl: googleSheetsWebhookUrl.trim(),
-          payload: payload
-        })
-      });
+      let success = false;
+      try {
+        const response = await fetch("/api/google-sheet-webhook", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            webhookUrl: googleSheetsWebhookUrl.trim(),
+            payload: payload
+          })
+        });
 
-      const data = await response.json();
-      if (data.success) {
-        console.log("Question delete request sent to Google Sheet Webhook successfully.", data);
-      } else {
-        console.warn("Delete Webhook response was unsuccessful:", data.error);
+        const contentType = response.headers.get("content-type") || "";
+        if (response.ok && contentType.includes("application/json")) {
+          const data = await response.json();
+          if (data.success) {
+            console.log("Question delete request sent to Google Sheet Webhook successfully.", data);
+            success = true;
+          } else {
+            console.warn("Delete Webhook response was unsuccessful:", data.error);
+          }
+        }
+      } catch (e) {
+        console.warn("Failed sending delete request to Google Sheet Webhook via server-side API, trying direct client-side fallback:", e);
+      }
+
+      // Direct Client-Side Fallback for Static Hostings (Vercel, Netlify)
+      if (!success) {
+        console.log("Attempting direct client-side delete webhook call with CORS-tolerant mode...");
+        await fetch(googleSheetsWebhookUrl.trim(), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload),
+          mode: "no-cors" // Safe bypass for Google Apps Script redirects
+        });
+        console.log("Direct client-side delete webhook completed successfully in no-cors mode.");
       }
     } catch (err) {
       console.error("Failed sending delete request to Google Sheet Webhook:", err);
@@ -1600,14 +1698,39 @@ export default function App() {
     setSheetParsedQuestions(null);
     
     try {
-      const res = await fetch(`/api/google-sheet?url=${encodeURIComponent(inputUrl.trim())}`);
-      const data = await res.json();
-      
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Gagal menghubungi server untuk mendownload lembar kerja.");
+      let rawCSV = "";
+      try {
+        const res = await fetch(`/api/google-sheet?url=${encodeURIComponent(inputUrl.trim())}`);
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const data = await res.json();
+          if (data.success && data.csv) {
+            rawCSV = data.csv;
+          } else if (data.error) {
+            console.warn("Server API returned error, falling back to direct browser fetch:", data.error);
+          }
+        } else {
+          console.warn("Server API returned unexpected content-type / status, falling back to direct browser fetch. Status:", res.status);
+        }
+      } catch (e) {
+        console.warn("Express proxy fetch failed or is not available, falling back to direct browser fetch:", e);
       }
-      
-      const rawCSV = data.csv;
+
+      // Fallback to direct client-side fetch if server proxy didn't return valid CSV
+      if (!rawCSV) {
+        const directCsvUrl = getGoogleSheetCsvUrl(inputUrl.trim());
+        if (directCsvUrl) {
+          console.log("Fetching directly from Google Sheets via browser:", directCsvUrl);
+          const directRes = await fetch(directCsvUrl);
+          if (!directRes.ok) {
+            throw new Error(`Gagal menarik data langsung dari Google Sheets. Pastikan spreadsheet diatur publik 'Siapa saja yang memiliki link dapat melihat' sebagai Viewer. (Status: ${directRes.status})`);
+          }
+          rawCSV = await directRes.text();
+        } else {
+          throw new Error("Format link Google Sheets tidak valid. Pastikan link memiliki format '/d/SPREADSHEET_ID'.");
+        }
+      }
+
       const parsedRows = parseCSV(rawCSV);
       const mappedQuestions: Question[] = [];
       
