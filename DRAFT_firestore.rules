@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net Catch-All (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Helper Functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Helper for validating a single Question payload
+    function isValidQuestion(q) {
+      return q.id is string && q.id.size() <= 128 && q.id.matches('^[a-zA-Z0-9_\\-]+$') &&
+             q.surahNumber is int && q.surahNumber >= 1 && q.surahNumber <= 114 &&
+             q.surahName is string && q.surahName.size() <= 200 &&
+             q.verseStart is int && q.verseStart >= 1 && q.verseStart <= 286 &&
+             q.verseEnd is int && q.verseEnd >= 1 && q.verseEnd <= 286 &&
+             q.type is string && (q.type == 'sambung_ayat' || q.type == 'arti_pemahaman' || q.type == 'random') &&
+             q.questionArabic is string && q.questionArabic.size() <= 5000 &&
+             q.questionTranslation is string && q.questionTranslation.size() <= 5000 &&
+             q.questionPrompt is string && q.questionPrompt.size() <= 1000 &&
+             q.answerArabic is string && q.answerArabic.size() <= 5000 &&
+             q.answerTranslation is string && q.answerTranslation.size() <= 5000 &&
+             q.explanation is string && q.explanation.size() <= 10000 &&
+             q.juzNumber is int && q.juzNumber >= 1 && q.juzNumber <= 30 &&
+             q.mushafPage is int && q.mushafPage >= 1 && q.mushafPage <= 604;
+    }
+
+    // Helper for validating QuizConfig sub-map
+    function isValidQuizConfig(c) {
+      return c.selectedSurah is int && c.selectedSurah >= 0 && c.selectedSurah <= 114 &&
+             c.startVerse is int && c.startVerse >= 1 && c.startVerse <= 286 &&
+             c.endVerse is int && c.endVerse >= 1 && c.endVerse <= 286 &&
+             c.questionType is string && (c.questionType == 'sambung_ayat' || c.questionType == 'arti_pemahaman' || c.questionType == 'random') &&
+             c.showOverlayAnswer is bool &&
+             (!c.keys().hasAll(['spinDuration']) || c.spinDuration is int) &&
+             (!c.keys().hasAll(['revealDelay']) || c.revealDelay is int);
+    }
+
+    // Helper for validating a single SessionState payload
+    function isValidSessionState(s) {
+      return s.sessionId is string && s.sessionId == 'global_stage' &&
+             s.showAnswer is bool &&
+             s.isSpinning is bool &&
+             s.spinningSurahName is string && s.spinningSurahName.size() <= 200 &&
+             s.spinningVerseNum is int && s.spinningVerseNum >= 1 &&
+             s.isReadingDetectionEnabled is bool &&
+             s.lastActionTime is int &&
+             s.isSeeded is bool &&
+             s.googleSheetsUrl is string && s.googleSheetsUrl.size() <= 2048 &&
+             s.googleSheetsWebhookUrl is string && s.googleSheetsWebhookUrl.size() <= 2048 &&
+             s.appMode is string && s.appMode.size() <= 100 &&
+             s.typeFilter is string && s.typeFilter.size() <= 100 &&
+             s.config is map && isValidQuizConfig(s.config) &&
+             (s.currentQuestion == null || (s.currentQuestion is map && isValidQuestion(s.currentQuestion))) &&
+             (!s.keys().hasAll(['isMicActive']) || s.isMicActive is bool);
+    }
+
+    // 3. Rules for questions pool
+    match /questions/{questionId} {
+      allow read: if true;
+      
+      allow create: if isValidId(questionId) && 
+                       isValidQuestion(incoming()) && 
+                       incoming().keys().hasAll(['id', 'surahNumber', 'surahName', 'verseStart', 'verseEnd', 'type', 'questionArabic', 'questionTranslation', 'questionPrompt', 'answerArabic', 'answerTranslation', 'explanation', 'juzNumber', 'mushafPage']) && 
+                       incoming().keys().size() == 14;
+
+      allow update: if isValidId(questionId) && 
+                       isValidQuestion(incoming()) &&
+                       incoming().keys().hasAll(['id', 'surahNumber', 'surahName', 'verseStart', 'verseEnd', 'type', 'questionArabic', 'questionTranslation', 'questionPrompt', 'answerArabic', 'answerTranslation', 'explanation', 'juzNumber', 'mushafPage']) && 
+                       incoming().keys().size() == 14;
+
+      allow delete: if isValidId(questionId);
+    }
+
+    // 4. Rules for sessions pool
+    match /sessions/{sessionId} {
+      allow read: if true;
+
+      allow create: if isValidId(sessionId) && 
+                       sessionId == 'global_stage' && 
+                       isValidSessionState(incoming()) &&
+                       incoming().keys().hasAll(['sessionId', 'showAnswer', 'isSpinning', 'spinningSurahName', 'spinningVerseNum', 'isReadingDetectionEnabled', 'lastActionTime', 'isSeeded', 'googleSheetsUrl', 'googleSheetsWebhookUrl', 'appMode', 'typeFilter', 'config', 'currentQuestion']) &&
+                       (incoming().keys().size() >= 14 && incoming().keys().size() <= 15);
+
+      allow update: if isValidId(sessionId) && 
+                       sessionId == 'global_stage' && 
+                       isValidSessionState(incoming()) &&
+                       incoming().keys().hasAll(['sessionId', 'showAnswer', 'isSpinning', 'spinningSurahName', 'spinningVerseNum', 'isReadingDetectionEnabled', 'lastActionTime', 'isSeeded', 'googleSheetsUrl', 'googleSheetsWebhookUrl', 'appMode', 'typeFilter', 'config', 'currentQuestion']) &&
+                       (incoming().keys().size() >= 14 && incoming().keys().size() <= 15);
+
+      allow delete: if false; // Session global_stage remains immutable and cannot be deleted by clients
+    }
+  }
+}

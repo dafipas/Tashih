@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "Question": {
+      "title": "Question",
+      "description": "Tahfidz quiz question item",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique question identifier"
+        },
+        "surahNumber": {
+          "type": "integer",
+          "description": "Quran Surah number (1-114)"
+        },
+        "surahName": {
+          "type": "string",
+          "description": "Name of the Surah"
+        },
+        "verseStart": {
+          "type": "integer",
+          "description": "Starting verse number"
+        },
+        "verseEnd": {
+          "type": "integer",
+          "description": "Ending verse number"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["sambung_ayat", "arti_pemahaman", "random"],
+          "description": "Type of the test question"
+        },
+        "questionArabic": {
+          "type": "string",
+          "description": "Arabic query verses with harakat"
+        },
+        "questionTranslation": {
+          "type": "string",
+          "description": "Indonesian translation of the starting verses"
+        },
+        "questionPrompt": {
+          "type": "string",
+          "description": "Instruction statement for the student"
+        },
+        "answerArabic": {
+          "type": "string",
+          "description": "Subsequent continuation verses in Arabic"
+        },
+        "answerTranslation": {
+          "type": "string",
+          "description": "Indonesian translation of the completion"
+        },
+        "explanation": {
+          "type": "string",
+          "description": "Theological backdrop and metadata"
+        },
+        "juzNumber": {
+          "type": "integer",
+          "description": "Computed Juz (1-30)"
+        },
+        "mushafPage": {
+          "type": "integer",
+          "description": "Standard Mushaf page (1-604)"
+        }
+      },
+      "required": [
+        "id",
+        "surahNumber",
+        "surahName",
+        "verseStart",
+        "verseEnd",
+        "type",
+        "questionArabic",
+        "questionTranslation",
+        "questionPrompt",
+        "answerArabic",
+        "answerTranslation",
+        "explanation",
+        "juzNumber",
+        "mushafPage"
+      ]
+    },
+    "SessionState": {
+      "title": "SessionState",
+      "description": "Real-time state for synchronized multi-device showcase panggung",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Default is global_stage"
+        },
+        "currentQuestion": {
+          "type": "object",
+          "description": "Current active question details"
+        },
+        "showAnswer": {
+          "type": "boolean",
+          "description": "Whether answer continuation is visible on screens"
+        },
+        "isSpinning": {
+          "type": "boolean",
+          "description": "Whether the randomizer wheel is currently in motion"
+        },
+        "spinningSurahName": {
+          "type": "string",
+          "description": "Temporary spinning surah name shown in slot machine"
+        },
+        "spinningVerseNum": {
+          "type": "integer",
+          "description": "Temporary spinning verse number shown in slot machine"
+        },
+        "isMicActive": {
+          "type": "boolean",
+          "description": "Synced assistant microphone listening state"
+        },
+        "isReadingDetectionEnabled": {
+          "type": "boolean",
+          "description": "Whether voice reading verification is turned on"
+        },
+        "lastActionTime": {
+          "type": "integer",
+          "description": "Epoch timestamp of last user action to guard synchrony ordering"
+        }
+      },
+      "required": [
+        "sessionId",
+        "showAnswer",
+        "isSpinning",
+        "isMicActive",
+        "isReadingDetectionEnabled",
+        "lastActionTime"
+      ]
+    }
+  },
+  "firestore": {
+    "questions/{questionId}": {
+      "schema": "Question",
+      "description": "Collection of all questions in the synchronized tahfidz test pool"
+    },
+    "sessions/{sessionId}": {
+      "schema": "SessionState",
+      "description": "Real-time active stage dashboard status sync"
+    }
+  }
+}

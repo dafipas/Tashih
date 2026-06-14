@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Scheherazade+New:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: "Amiri", "Scheherazade New", serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-gold-light: #fef08a;
+  --color-gold-mid: #eab308;
+  --color-gold-dark: #a16207;
+}
+
+@layer utilities {
+  /* Custom glowing red/gold styles for Mushaf margins */
+  .mushaf-glow-red {
+    box-shadow: 0 10px 30px rgba(153, 27, 27, 0.15), 0 1px 3px rgba(153, 27, 27, 0.1);
+  }
+  
+  .arabic-text {
+    font-family: var(--font-arabic);
+    direction: rtl;
+    line-height: 2.3;
+    text-align: right;
+  }
+}
+
+/* Animations */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float-gentle 4s ease-in-out infinite;
+}
+
+/* Text flashing for shuffling state */
+@keyframes text-flash {
+  0%, 100% { opacity: 0.3; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+.animate-text-flash {
+  animation: text-flash 0.3s ease-in-out infinite;
+}
+
+/* Red pulsing ripple */
+@keyframes ripple {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}
+.animate-ripple-red {
+  animation: ripple 2s ease-in-out infinite;
+}
+
+/* Custom scrollbars for red-white theme */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #fcfaf7;
+}
+::-webkit-scrollbar-thumb {
+  background: #f87171;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #dc2626;
+}

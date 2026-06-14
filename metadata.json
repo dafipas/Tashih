@@ -1,0 +1,10 @@
+{
+  "name": "Remix: Tashih Randomizer",
+  "description": "Voice-activated app for tahfidz testing, featuring verse continuation, meanings, and Mushaf Uthmani display in Arabic script.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
