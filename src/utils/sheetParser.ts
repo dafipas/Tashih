@@ -7,6 +7,19 @@ import { Question, QuestionType } from "../types";
 import { quranSurahs, getJuzNumber } from "../data";
 
 /**
+ * Creates a stable, lightweight hash for strings
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+/**
  * Parses raw CSV content (supports both comma ',' and semicolon ';' delimiters)
  * and handles quotes correctly.
  */
@@ -280,8 +293,14 @@ export function mapRecordToQuestion(
   const pgStr = getVal(["page", "halaman", "mushafpage", "halamanmushaf", "no_halaman"]);
   const mushafPage = Number(pgStr) || Math.floor(Math.random() * 600) + 1;
 
+  // Generate a robust content-based stable ID
+  const cleanArabic = (questionArabic || "").replace(/[^0-9\u0600-\u06FF\u0621-\u064A]/g, "").trim();
+  const cleanAnswer = (answerArabic || "").replace(/[^0-9\u0600-\u06FF\u0621-\u064A]/g, "").trim();
+  const contentHash = simpleHash(cleanArabic + "_" + cleanAnswer);
+  const stableId = `${prefix}_${type === QuestionType.SAMBUNG_AYAT ? "sambung" : "terjamah"}_${surahNumber}_${verseStart}_${contentHash}`;
+
   return {
-    id: `${prefix}_${Date.now()}_${index}`,
+    id: stableId,
     surahNumber,
     surahName,
     verseStart,

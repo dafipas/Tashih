@@ -93,6 +93,14 @@
           "type": "object",
           "description": "Current active question details"
         },
+        "currentQuestionSambung": {
+          "type": "object",
+          "description": "Active question for Sambung Ayat mode"
+        },
+        "currentQuestionTerjamah": {
+          "type": "object",
+          "description": "Active question for Terjamah/Pemahaman mode"
+        },
         "showAnswer": {
           "type": "boolean",
           "description": "Whether answer continuation is visible on screens"
@@ -120,13 +128,52 @@
         "lastActionTime": {
           "type": "integer",
           "description": "Epoch timestamp of last user action to guard synchrony ordering"
+        },
+        "googleSheetsUrlSambung": {
+          "type": "string",
+          "description": "Google Sheets URL for Sambung Ayat"
+        },
+        "googleSheetsUrlTerjamah": {
+          "type": "string",
+          "description": "Google Sheets URL for Terjamah"
+        },
+        "googleSheetsWebhookUrlSambung": {
+          "type": "string",
+          "description": "Google Sheets Google Apps Script webhook URL for Sambung Ayat"
+        },
+        "googleSheetsWebhookUrlTerjamah": {
+          "type": "string",
+          "description": "Google Sheets Google Apps Script webhook URL for Terjamah"
+        },
+        "shownQuestionIdsSambung": {
+          "type": "array",
+          "description": "History of shown question IDs in Sambung Ayat mode"
+        },
+        "shownQuestionIdsTerjamah": {
+          "type": "array",
+          "description": "History of shown question IDs in Terjamah mode"
+        },
+        "configSambung": {
+          "type": "object",
+          "description": "Quiz customization for Sambung Ayat"
+        },
+        "configTerjamah": {
+          "type": "object",
+          "description": "Quiz customization for Terjamah"
+        },
+        "appMode": {
+          "type": "string",
+          "description": "Primary active quiz tab option"
+        },
+        "typeFilter": {
+          "type": "string",
+          "description": "Question difficulty or scope subclass"
         }
       },
       "required": [
         "sessionId",
         "showAnswer",
         "isSpinning",
-        "isMicActive",
         "isReadingDetectionEnabled",
         "lastActionTime"
       ]

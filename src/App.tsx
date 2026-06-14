@@ -550,75 +550,42 @@ export default function App() {
     }
 
     try {
-      if (newPool.length === 0) {
-        // clear all in Firestore
-        let querySnap;
-        try {
-          querySnap = await getDocs(collection(db, "questions"));
-        } catch (err) {
-          handleFirestoreError(err, OperationType.GET, "questions");
-          return;
-        }
+      let querySnap;
+      try {
+        querySnap = await getDocs(collection(db, "questions"));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.GET, "questions");
+        return;
+      }
 
-        const batch = writeBatch(db);
-        querySnap.forEach((docRef) => {
-          batch.delete(docRef.ref);
-        });
+      const existingDocs = new Map<string, any>();
+      querySnap.forEach((docRef) => {
+        existingDocs.set(docRef.id, docRef.ref);
+      });
 
-        try {
-          await batch.commit();
-        } catch (err) {
-          handleFirestoreError(err, OperationType.WRITE, "questions");
-        }
-      } else if (newPool.length === fallbackQuestions.length && newPool[0].id === fallbackQuestions[0].id) {
-        // reset to fallback defaults in Firestore
-        let querySnap;
-        try {
-          querySnap = await getDocs(collection(db, "questions"));
-        } catch (err) {
-          handleFirestoreError(err, OperationType.GET, "questions");
-          return;
-        }
+      const newPoolIds = new Set(newPool.map(q => q.id));
+      const batch = writeBatch(db);
 
-        const batch = writeBatch(db);
-        querySnap.forEach((docRef) => {
-          batch.delete(docRef.ref);
-        });
-        newPool.forEach((q) => {
-          batch.set(doc(db, "questions", q.id), q);
-        });
-
-        try {
-          await batch.commit();
-        } catch (err) {
-          handleFirestoreError(err, OperationType.WRITE, "questions");
+      // Delete any question on Firestore that is no longer in our local pool
+      let deleteCount = 0;
+      existingDocs.forEach((ref, id) => {
+        if (!newPoolIds.has(id)) {
+          batch.delete(ref);
+          deleteCount++;
         }
-      } else if (newPool.length < questionsPool.length) {
-        // delete single items
-        const remainingIds = new Set(newPool.map(q => q.id));
-        const deletedItems = questionsPool.filter(q => !remainingIds.has(q.id));
-        const batch = writeBatch(db);
-        deletedItems.forEach((q) => {
-          batch.delete(doc(db, "questions", q.id));
-        });
+      });
 
-        try {
-          await batch.commit();
-        } catch (err) {
-          handleFirestoreError(err, OperationType.WRITE, "questions");
-        }
-      } else {
-        // update / add single items
-        const batch = writeBatch(db);
-        newPool.forEach((q) => {
-          batch.set(doc(db, "questions", q.id), q);
-        });
+      // Write/update current questions from the pool
+      newPool.forEach((q) => {
+        batch.set(doc(db, "questions", q.id), q);
+      });
 
-        try {
-          await batch.commit();
-        } catch (err) {
-          handleFirestoreError(err, OperationType.WRITE, "questions");
-        }
+      console.log(`Syncing questions pool to Firestore: writing ${newPool.length} questions, deleting ${deleteCount} stale ones.`);
+
+      try {
+        await batch.commit();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, "questions");
       }
     } catch (err) {
       console.warn("Failed syncing questions update with Firestore", err);

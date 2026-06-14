@@ -59,13 +59,26 @@ service cloud.firestore {
              s.isReadingDetectionEnabled is bool &&
              s.lastActionTime is int &&
              s.isSeeded is bool &&
-             s.googleSheetsUrl is string && s.googleSheetsUrl.size() <= 2048 &&
-             s.googleSheetsWebhookUrl is string && s.googleSheetsWebhookUrl.size() <= 2048 &&
              s.appMode is string && s.appMode.size() <= 100 &&
              s.typeFilter is string && s.typeFilter.size() <= 100 &&
              s.config is map && isValidQuizConfig(s.config) &&
              (s.currentQuestion == null || (s.currentQuestion is map && isValidQuestion(s.currentQuestion))) &&
-             (!s.keys().hasAll(['isMicActive']) || s.isMicActive is bool);
+             (!s.keys().hasAll(['googleSheetsUrl']) || s.googleSheetsUrl is string) &&
+             (!s.keys().hasAll(['googleSheetsWebhookUrl']) || s.googleSheetsWebhookUrl is string) &&
+             (!s.keys().hasAll(['isMicActive']) || s.isMicActive is bool) &&
+             (!s.keys().hasAll(['googleSheetsUrlSambung']) || s.googleSheetsUrlSambung is string) &&
+             (!s.keys().hasAll(['googleSheetsUrlTerjamah']) || s.googleSheetsUrlTerjamah is string) &&
+             (!s.keys().hasAll(['googleSheetsWebhookUrlSambung']) || s.googleSheetsWebhookUrlSambung is string) &&
+             (!s.keys().hasAll(['googleSheetsWebhookUrlTerjamah']) || s.googleSheetsWebhookUrlTerjamah is string) &&
+             (!s.keys().hasAll(['shownQuestionIdsSambung']) || (s.shownQuestionIdsSambung is list && s.shownQuestionIdsSambung.size() <= 2000 && (s.shownQuestionIdsSambung.size() == 0 || s.shownQuestionIdsSambung[0] is string))) &&
+             (!s.keys().hasAll(['shownQuestionIdsTerjamah']) || (s.shownQuestionIdsTerjamah is list && s.shownQuestionIdsTerjamah.size() <= 2000 && (s.shownQuestionIdsTerjamah.size() == 0 || s.shownQuestionIdsTerjamah[0] is string))) &&
+             (!s.keys().hasAll(['configSambung']) || (s.configSambung is map && isValidQuizConfig(s.configSambung))) &&
+             (!s.keys().hasAll(['configTerjamah']) || (s.configTerjamah is map && isValidQuizConfig(s.configTerjamah))) &&
+             (!s.keys().hasAll(['currentQuestionSambung']) || (s.currentQuestionSambung == null || (s.currentQuestionSambung is map && isValidQuestion(s.currentQuestionSambung)))) &&
+             (!s.keys().hasAll(['currentQuestionTerjamah']) || (s.currentQuestionTerjamah == null || (s.currentQuestionTerjamah is map && isValidQuestion(s.currentQuestionTerjamah)))) &&
+             (!s.keys().hasAll(['stopBeepActive']) || s.stopBeepActive is bool) &&
+             (!s.keys().hasAll(['lastSpeechCommand']) || s.lastSpeechCommand is string) &&
+             (!s.keys().hasAll(['revealCountdown']) || s.revealCountdown is int);
     }
 
     // 3. Rules for questions pool
@@ -92,14 +105,14 @@ service cloud.firestore {
       allow create: if isValidId(sessionId) && 
                        sessionId == 'global_stage' && 
                        isValidSessionState(incoming()) &&
-                       incoming().keys().hasAll(['sessionId', 'showAnswer', 'isSpinning', 'spinningSurahName', 'spinningVerseNum', 'isReadingDetectionEnabled', 'lastActionTime', 'isSeeded', 'googleSheetsUrl', 'googleSheetsWebhookUrl', 'appMode', 'typeFilter', 'config', 'currentQuestion']) &&
-                       (incoming().keys().size() >= 14 && incoming().keys().size() <= 15);
+                       incoming().keys().hasAll(['sessionId', 'showAnswer', 'isSpinning', 'spinningSurahName', 'spinningVerseNum', 'isReadingDetectionEnabled', 'lastActionTime', 'isSeeded', 'appMode', 'typeFilter', 'config']) &&
+                       incoming().keys().size() <= 40;
 
       allow update: if isValidId(sessionId) && 
                        sessionId == 'global_stage' && 
                        isValidSessionState(incoming()) &&
-                       incoming().keys().hasAll(['sessionId', 'showAnswer', 'isSpinning', 'spinningSurahName', 'spinningVerseNum', 'isReadingDetectionEnabled', 'lastActionTime', 'isSeeded', 'googleSheetsUrl', 'googleSheetsWebhookUrl', 'appMode', 'typeFilter', 'config', 'currentQuestion']) &&
-                       (incoming().keys().size() >= 14 && incoming().keys().size() <= 15);
+                       incoming().keys().hasAll(['sessionId', 'showAnswer', 'isSpinning', 'spinningSurahName', 'spinningVerseNum', 'isReadingDetectionEnabled', 'lastActionTime', 'isSeeded', 'appMode', 'typeFilter', 'config']) &&
+                       incoming().keys().size() <= 40;
 
       allow delete: if false; // Session global_stage remains immutable and cannot be deleted by clients
     }
